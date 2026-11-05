@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Accelerometer } from 'expo-sensors';
 import type { Equipment, SyncMode } from '../domain/types';
-import { findEquipment, saveEquipmentState } from '../data/localDb';
+import { findEquipment, getRecentReadings, saveEquipmentState } from '../data/localDb';
 import { simulateCycle, syncReference } from '../data/plantRepository';
 
 // Describe un error de forma legible distinguiendo fallos de red (axios) de otros errores.
@@ -138,8 +138,10 @@ export function usePlantViewModel() {
     }
   };
 
+  const loadHistory = useCallback((id: string) => getRecentReadings(id, 10), []);
+
   return {
     items, filter, loading, notice, mode, humidity, vibration,
-    search, changeEnabled, simulate, sync,
+    search, changeEnabled, simulate, sync, loadHistory,
   };
 }

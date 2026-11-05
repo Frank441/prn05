@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { HistoryDialog } from '../components/HistoryDialog';
 import { OverviewWeb } from '../components/OverviewWeb';
 import type { Equipment } from '../domain/types';
 import { usePlantViewModel } from '../viewmodel/usePlantViewModel';
@@ -25,9 +26,10 @@ function round(v: number): string {
   return `${v.toFixed(1)} °C`;
 }
 
-function EquipmentCard({ item, onToggle }: {
+function EquipmentCard({ item, onToggle, onHistory }: {
   item: Equipment;
   onToggle: (id: string, enabled: boolean) => void;
+  onHistory: (item: Equipment) => void;
 }) {
   const alarm = item.enabled === 1 && item.temperature >= item.maxTemp;
   return (
@@ -58,7 +60,7 @@ function EquipmentCard({ item, onToggle }: {
         </View>
         <Pressable onPress={() => Alert.alert('Configuración', 'A implementar en el examen.')}
           style={styles.inlineButton}><Text style={styles.inlineButtonText}>Umbral</Text></Pressable>
-        <Pressable onPress={() => Alert.alert('Historial', 'A implementar en el examen.')}
+        <Pressable onPress={() => onHistory(item)}
           style={styles.inlineButton}><Text style={styles.inlineButtonText}>Historial</Text></Pressable>
       </View>
     </View>
@@ -67,6 +69,7 @@ function EquipmentCard({ item, onToggle }: {
 
 export function PlantScreen() {
   const vm = usePlantViewModel();
+  const [historyFor, setHistoryFor] = useState<Equipment | null>(null);
   const active = vm.items.filter((device) => device.enabled === 1).length;
   const alarms = vm.items.filter((device) => device.enabled === 1 && device.temperature >= device.maxTemp).length;
 
@@ -120,10 +123,11 @@ export function PlantScreen() {
           autoCapitalize="none"
           returnKeyType="search"
         />
-        {vm.items.map((item) => <EquipmentCard key={item.id} item={item} onToggle={(id, enabled) => void vm.changeEnabled(id, enabled)} />)}
+        {vm.items.map((item) => <EquipmentCard key={item.id} item={item} onToggle={(id, enabled) => void vm.changeEnabled(id, enabled)} onHistory={setHistoryFor} />)}
         {!vm.items.length && <Text style={styles.empty}>No se encontraron equipos.</Text>}
         <Text style={styles.footnote}>Entorno académico. Los equipos y comandos son simulados; la API externa aporta una referencia climática, no telemetría de una planta real.</Text>
       </ScrollView>
+      <HistoryDialog equipment={historyFor} loadHistory={vm.loadHistory} onClose={() => setHistoryFor(null)} />
     </SafeAreaView>
   );
 }
