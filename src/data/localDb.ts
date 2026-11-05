@@ -70,11 +70,18 @@ function toEquipment(row: EquipmentRow): Equipment {
 
 export async function findEquipment(filter: string): Promise<Equipment[]> {
   const db = await openPlantDatabase();
-  const clause = filter.trim()
-    ? `WHERE name LIKE '%${filter.trim()}%' OR id LIKE '%${filter.trim()}%'`
-    : '';
+  const text = filter.trim();
+  if (!text) {
+    const all = await db.getAllAsync<EquipmentRow>('SELECT * FROM equipment ORDER BY id ASC');
+    return all.map(toEquipment);
+  }
+  // Consulta parametrizada: el texto del usuario nunca se concatena al SQL.
+  // Se escapan los comodines de LIKE (% y _) y el propio carácter de escape
+  // para que se busquen de forma literal.
+  const pattern = `%${text.replace(/[\\%_]/g, '\\$&')}%`;
   const rows = await db.getAllAsync<EquipmentRow>(
-    `SELECT * FROM equipment ${clause} ORDER BY id ASC`
+    "SELECT * FROM equipment WHERE name LIKE ? ESCAPE '\\' OR id LIKE ? ESCAPE '\\' ORDER BY id ASC",
+    [pattern, pattern]
   );
   return rows.map(toEquipment);
 }
