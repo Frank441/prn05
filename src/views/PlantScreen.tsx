@@ -81,7 +81,9 @@ export function PlantScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+      {/* Edge-to-edge: la barra de estado es transparente y muestra el fondo del
+          SafeAreaView (C.bg), que reserva ese espacio con edges={['top', ...]}. */}
+      <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <View style={styles.brandMark}><Text style={{ color: '#FFF', fontSize: 18, fontWeight: '900' }}>Ⅱ</Text></View>

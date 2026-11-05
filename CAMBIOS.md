@@ -95,7 +95,11 @@
 
 ## Nota sobre `npm run typecheck`
 
-Queda un único error, `TS2769` en `<StatusBar ... backgroundColor>` de `PlantScreen.tsx`. Ya estaba en el código original (verificado ejecutando el typecheck sin los cambios): no deriva de estas modificaciones.
+El código original tenía un error `TS2769` en `<StatusBar ... backgroundColor>` de `PlantScreen.tsx` (verificado ejecutando el typecheck sin los cambios).
+
+- **Causa:** en React Native 0.88 `StatusBar` ya no acepta `backgroundColor`. La app se dibuja de borde a borde (*edge-to-edge*) y la barra de estado es transparente.
+- **Corrección:** se quitó la propiedad. El color se conserva porque la barra muestra el fondo del `SafeAreaView` (`C.bg`), que reserva el espacio superior con `edges={['top', ...]}`.
+- **Resultado:** `npm run typecheck` termina sin errores.
 
 ## Uso de IA (opcional)
 
