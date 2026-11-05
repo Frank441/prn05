@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
+import axios from 'axios';
 import { Accelerometer } from 'expo-sensors';
 import type { Equipment, SyncMode } from '../domain/types';
 import { findEquipment, saveEquipmentState } from '../data/localDb';
 import { simulateCycle, syncReference } from '../data/plantRepository';
+
+// Describe un error de forma legible distinguiendo fallos de red (axios) de otros errores.
+function describeError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return 'tiempo de espera agotado';
+    if (error.response) return `HTTP ${error.response.status}`;
+    return 'sin red';
+  }
+  return error instanceof Error ? error.message : String(error);
+}
 
 export function usePlantViewModel() {
   const [items, setItems] = useState<Equipment[]>([]);
@@ -97,15 +108,26 @@ export function usePlantViewModel() {
     if (loading) return;
     setLoading(true);
     try {
-      const all = await findEquipment('');
-      await simulateCycle(all);
-      const result = await syncReference();
-      setHumidity(result.humidity);
-      setMode('sincronizado');
-      setNotice('Referencia ambiental recibida por HTTP y guardada.');
-    } catch {
-      setMode('simulado');
-      setNotice('Sin conexión externa. Se registraron lecturas simuladas.');
+      // Fase 1: simulación local (SQLite). Si falla, no se registró nada.
+      try {
+        const all = await findEquipment('');
+        await simulateCycle(all);
+      } catch (error) {
+        setNotice(`No se pudieron registrar las lecturas simuladas: ${describeError(error)}`);
+        return;
+      }
+      // Fase 2: referencia externa (HTTP + guardado). Las lecturas simuladas ya quedaron registradas.
+      try {
+        const result = await syncReference();
+        setHumidity(result.humidity);
+        setMode('sincronizado');
+        setNotice('Referencia ambiental recibida por HTTP y guardada.');
+      } catch (error) {
+        setMode('simulado');
+        setNotice(
+          `Sin conexión externa (${describeError(error)}). Se registraron lecturas simuladas.`
+        );
+      }
     } finally {
       try {
         await reload(filter);
