@@ -1,10 +1,18 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { isInAlarm } from '../domain/threshold';
 import type { Equipment } from '../domain/types';
 
 function createHtml(items: Equipment[]): string {
-  const input = items.map(({ id, temperature, maxTemp }) => ({ id, temperature, maxTemp }));
+  // La alarma se calcula del lado nativo con el mismo criterio que las tarjetas
+  // (activado y temperatura >= límite), en lugar de repetir la regla en el HTML.
+  const input = items.map((item) => ({
+    id: item.id,
+    temperature: item.temperature,
+    maxTemp: item.maxTemp,
+    alarm: isInAlarm(item),
+  }));
   return `<!DOCTYPE html><html lang="es"><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
   <style>
   * { box-sizing:border-box; } body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#15213B; color:#eaf3ff; }
@@ -14,7 +22,7 @@ function createHtml(items: Equipment[]): string {
   .code { width:48px; flex:none; font-size:11px; color:#bcd0ef; }
   .rail { height:9px; background:#344461; border-radius:20px; flex:1; overflow:hidden; }
   .fill { height:100%; border-radius:20px; background:#68cbd2; }
-  .hot { background:#f5aa75; } .value { width:42px; text-align:right; font-size:11px; }
+  .hot { background:#f5aa75; } .value { width:64px; flex:none; text-align:right; font-size:11px; white-space:nowrap; }
   .footer { display:flex; justify-content:space-between; align-items:center; margin-top:12px; }
   .footnote { font-size:10px; color:#9eafca; }
   button { border:1px solid #5d8fca; border-radius:7px; background:#214873; color:#f6fbff; padding:6px 12px; font-size:12px; }
@@ -27,10 +35,10 @@ function createHtml(items: Equipment[]): string {
     const line = document.createElement('div'); line.className='line';
     const code=document.createElement('span');code.className='code';code.textContent=row.id;
     const rail=document.createElement('div');rail.className='rail';
-    const fill=document.createElement('div');fill.className='fill'+(row.temperature>=row.maxTemp?' hot':'');
+    const fill=document.createElement('div');fill.className='fill'+(row.alarm?' hot':'');
     fill.style.width=Math.max(0,Math.min(100,(row.temperature/Math.max(1,row.maxTemp))*100))+'%';
     rail.appendChild(fill);
-    const value=document.createElement('span');value.className='value';value.textContent=row.temperature.toFixed(1)+'°';
+    const value=document.createElement('span');value.className='value';value.textContent=row.temperature.toFixed(1)+'°/'+row.maxTemp.toFixed(0)+'°';
     line.append(code,rail,value);target.appendChild(line);
   }
   document.getElementById('refresh').addEventListener('click',()=>{

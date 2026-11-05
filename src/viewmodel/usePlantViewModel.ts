@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Accelerometer } from 'expo-sensors';
 import type { Equipment, SyncMode } from '../domain/types';
-import { findEquipment, getRecentReadings, saveEquipmentState } from '../data/localDb';
+import { findEquipment, getRecentReadings, saveEquipmentState, saveMaxTemp } from '../data/localDb';
+import { parseThreshold } from '../domain/threshold';
 import { simulateCycle, syncReference } from '../data/plantRepository';
 
 // Describe un error de forma legible distinguiendo fallos de red (axios) de otros errores.
@@ -88,6 +89,24 @@ export function usePlantViewModel() {
     }
   };
 
+  // Devuelve null si se guardó, o el mensaje de error para mostrar en el diálogo.
+  const changeThreshold = async (id: string, text: string): Promise<string | null> => {
+    const parsed = parseThreshold(text);
+    if (!parsed.ok) return parsed.error;
+    try {
+      await saveMaxTemp(id, parsed.value);
+    } catch (error) {
+      return `No se pudo guardar el límite: ${describeError(error)}`;
+    }
+    // Se actualiza el estado solo después de persistir: la vista nunca muestra
+    // un límite que no quedó guardado en SQLite.
+    setItems((current) => current.map((item) =>
+      item.id === id ? { ...item, maxTemp: parsed.value } : item
+    ));
+    setNotice(`Límite de ${id} actualizado a ${parsed.value.toFixed(1)} °C.`);
+    return null;
+  };
+
   const simulate = async () => {
     if (loading) return;
     setLoading(true);
@@ -142,6 +161,6 @@ export function usePlantViewModel() {
 
   return {
     items, filter, loading, notice, mode, humidity, vibration,
-    search, changeEnabled, simulate, sync, loadHistory,
+    search, changeEnabled, changeThreshold, simulate, sync, loadHistory,
   };
 }

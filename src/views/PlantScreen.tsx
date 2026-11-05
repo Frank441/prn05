@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StatusBar,
@@ -14,6 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HistoryDialog } from '../components/HistoryDialog';
 import { OverviewWeb } from '../components/OverviewWeb';
+import { ThresholdDialog } from '../components/ThresholdDialog';
+import { isInAlarm } from '../domain/threshold';
 import type { Equipment } from '../domain/types';
 import { usePlantViewModel } from '../viewmodel/usePlantViewModel';
 
@@ -26,12 +27,13 @@ function round(v: number): string {
   return `${v.toFixed(1)} °C`;
 }
 
-function EquipmentCard({ item, onToggle, onHistory }: {
+function EquipmentCard({ item, onToggle, onThreshold, onHistory }: {
   item: Equipment;
   onToggle: (id: string, enabled: boolean) => void;
+  onThreshold: (id: string) => void;
   onHistory: (item: Equipment) => void;
 }) {
-  const alarm = item.enabled === 1 && item.temperature >= item.maxTemp;
+  const alarm = isInAlarm(item);
   return (
     <View style={styles.equipmentCard}>
       <View style={styles.cardTop}>
@@ -58,7 +60,8 @@ function EquipmentCard({ item, onToggle, onHistory }: {
             {alarm ? '● ALARMA' : item.enabled ? '● OPERATIVO' : '○ DETENIDO'}
           </Text>
         </View>
-        <Pressable onPress={() => Alert.alert('Configuración', 'A implementar en el examen.')}
+        <Pressable onPress={() => onThreshold(item.id)}
+          accessibilityLabel={`Cambiar límite de ${item.name}`}
           style={styles.inlineButton}><Text style={styles.inlineButtonText}>Umbral</Text></Pressable>
         <Pressable onPress={() => onHistory(item)}
           style={styles.inlineButton}><Text style={styles.inlineButtonText}>Historial</Text></Pressable>
@@ -70,8 +73,11 @@ function EquipmentCard({ item, onToggle, onHistory }: {
 export function PlantScreen() {
   const vm = usePlantViewModel();
   const [historyFor, setHistoryFor] = useState<Equipment | null>(null);
+  // Se guarda el id (no el objeto) para que el diálogo use siempre los datos vigentes.
+  const [thresholdId, setThresholdId] = useState<string | null>(null);
+  const thresholdTarget = vm.items.find((device) => device.id === thresholdId);
   const active = vm.items.filter((device) => device.enabled === 1).length;
-  const alarms = vm.items.filter((device) => device.enabled === 1 && device.temperature >= device.maxTemp).length;
+  const alarms = vm.items.filter(isInAlarm).length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -123,11 +129,24 @@ export function PlantScreen() {
           autoCapitalize="none"
           returnKeyType="search"
         />
-        {vm.items.map((item) => <EquipmentCard key={item.id} item={item} onToggle={(id, enabled) => void vm.changeEnabled(id, enabled)} onHistory={setHistoryFor} />)}
+        {vm.items.map((item) => (
+          <EquipmentCard key={item.id} item={item}
+            onToggle={(id, enabled) => void vm.changeEnabled(id, enabled)}
+            onThreshold={setThresholdId}
+            onHistory={setHistoryFor} />
+        ))}
         {!vm.items.length && <Text style={styles.empty}>No se encontraron equipos.</Text>}
         <Text style={styles.footnote}>Entorno académico. Los equipos y comandos son simulados; la API externa aporta una referencia climática, no telemetría de una planta real.</Text>
       </ScrollView>
       <HistoryDialog equipment={historyFor} loadHistory={vm.loadHistory} onClose={() => setHistoryFor(null)} />
+      {thresholdTarget && (
+        <ThresholdDialog
+          key={thresholdTarget.id}
+          equipment={thresholdTarget}
+          onSave={vm.changeThreshold}
+          onClose={() => setThresholdId(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
